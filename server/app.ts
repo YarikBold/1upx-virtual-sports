@@ -44,7 +44,7 @@ export async function createApp(db: PrismaClient) {
     catch (error) {
       const code = typeof error === 'object' && error && 'code' in error ? String((error as { code?: unknown }).code) : '';
       const message = error instanceof Error ? error.message : String(error);
-      const error_code = /^P1\d{3}$/.test(code) ? code : /ENOTFOUND|EAI_AGAIN/i.test(message) ? 'DNS_ERROR' : /TLS|SSL|certificate/i.test(message) ? 'TLS_ERROR' : /URL|Invalid/i.test(message) ? 'P1013' : 'DATABASE_UNAVAILABLE';
+      const error_code = /Authentication failed|provided database credentials|password authentication failed/i.test(message) ? 'P1000' : /^P1\d{3}$/.test(code) ? code : /ENOTFOUND|EAI_AGAIN/i.test(message) ? 'DNS_ERROR' : /TLS|SSL|certificate/i.test(message) ? 'TLS_ERROR' : /URL|Invalid/i.test(message) ? 'P1013' : 'DATABASE_UNAVAILABLE';
       return reply.code(503).send({ status: 'unavailable', database: 'disconnected', error_code, prisma_message: safePrismaMessage(message), runtime_url: connectionShape(process.env.DATABASE_URL), migration_url: connectionShape(process.env.DIRECT_URL), server_now: new Date().toISOString() });
     }
   });
