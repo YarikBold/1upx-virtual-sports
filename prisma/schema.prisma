@@ -98,20 +98,23 @@ model Season {
 }
 
 model Fixture {
-  id             String      @id
-  seasonId       String
-  season         Season      @relation(fields: [seasonId], references: [id])
-  competitionId  String
-  competition    Competition @relation(fields: [competitionId], references: [id])
-  homeId         String
-  home           Participant @relation("Home", fields: [homeId], references: [id])
-  awayId         String
-  away           Participant @relation("Away", fields: [awayId], references: [id])
-  round          Int
-  kickoffAt      DateTime
-  endsAt         DateTime
-  seedCommit     String
-  ratingSnapshot Json
+  id                String      @id
+  seasonId          String
+  season            Season      @relation(fields: [seasonId], references: [id])
+  competitionId     String
+  competition       Competition @relation(fields: [competitionId], references: [id])
+  homeId            String
+  home              Participant @relation("Home", fields: [homeId], references: [id])
+  awayId            String
+  away              Participant @relation("Away", fields: [awayId], references: [id])
+  round             Int
+  kickoffAt         DateTime
+  endsAt            DateTime
+  seedCommit        String
+  ratingSnapshot    Json
+  finalHomeScore    Int?
+  finalAwayScore    Int?
+  resultCommittedAt DateTime?
 
   @@unique([seasonId, competitionId, round, homeId])
   @@index([seasonId, kickoffAt])
