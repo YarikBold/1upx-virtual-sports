@@ -7,6 +7,18 @@ import { existsSync } from 'node:fs';
 import { createUser, dashboard, grant, seasonView, eventsView, eventView } from './service.js';
 import { sha256 } from './domain.js';
 
+function connectionShape(value: string | undefined) {
+  if (!value) return { present: false, valid: false };
+  try {
+    const url = new URL(value);
+    return { present: true, valid: url.protocol === 'postgresql:' || url.protocol === 'postgres:', protocol: url.protocol, hostname: url.hostname || null, port: url.port ? Number(url.port) : null, database: url.pathname.replace(/^\//, '') || null, pgbouncer: url.searchParams.get('pgbouncer') === 'true', sslmode: url.searchParams.get('sslmode') ?? null };
+  } catch { return { present: true, valid: false }; }
+}
+
+function safePrismaMessage(message: string) {
+  return message.replace(/postgres(?:ql)?:\/\/[^\s)]+/gi, 'postgresql://[REDACTED]').replace(/(password|passwd|pwd)=([^\s&]+)/gi, '$1=[REDACTED]');
+}
+
 export async function createApp(db: PrismaClient) {
   const app = Fastify({ logger: false, bodyLimit: 16_384 });
   await app.register(cookie);
@@ -33,7 +45,7 @@ export async function createApp(db: PrismaClient) {
       const code = typeof error === 'object' && error && 'code' in error ? String((error as { code?: unknown }).code) : '';
       const message = error instanceof Error ? error.message : String(error);
       const error_code = /^P1\d{3}$/.test(code) ? code : /ENOTFOUND|EAI_AGAIN/i.test(message) ? 'DNS_ERROR' : /TLS|SSL|certificate/i.test(message) ? 'TLS_ERROR' : /URL|Invalid/i.test(message) ? 'P1013' : 'DATABASE_UNAVAILABLE';
-      return reply.code(503).send({ status: 'unavailable', database: 'disconnected', error_code, server_now: new Date().toISOString() });
+      return reply.code(503).send({ status: 'unavailable', database: 'disconnected', error_code, prisma_message: safePrismaMessage(message), runtime_url: connectionShape(process.env.DATABASE_URL), migration_url: connectionShape(process.env.DIRECT_URL), server_now: new Date().toISOString() });
     }
   });
   app.post('/api/session', async (req, reply) => {
