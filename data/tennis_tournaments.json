@@ -1,0 +1,114 @@
+[
+  {
+    "name": "World Crown Championship",
+    "tier": "GRAND"
+  },
+  {
+    "name": "Continental Grand Open",
+    "tier": "GRAND"
+  },
+  {
+    "name": "Northern Grand Championship",
+    "tier": "GRAND"
+  },
+  {
+    "name": "Summer Crown Open",
+    "tier": "GRAND"
+  },
+  {
+    "name": "Madrid Solar Masters",
+    "tier": "MASTERS"
+  },
+  {
+    "name": "Rome Heritage Masters",
+    "tier": "MASTERS"
+  },
+  {
+    "name": "Paris Indoor Masters",
+    "tier": "MASTERS"
+  },
+  {
+    "name": "Berlin Crown Masters",
+    "tier": "MASTERS"
+  },
+  {
+    "name": "Miami Coast Masters",
+    "tier": "MASTERS"
+  },
+  {
+    "name": "Shanghai Neon Masters",
+    "tier": "MASTERS"
+  },
+  {
+    "name": "Toronto Northern Masters",
+    "tier": "MASTERS"
+  },
+  {
+    "name": "Monte Vista Masters",
+    "tier": "MASTERS"
+  },
+  {
+    "name": "Barcelona Elite Open",
+    "tier": "TOUR_500"
+  },
+  {
+    "name": "Dubai Horizon Open",
+    "tier": "TOUR_500"
+  },
+  {
+    "name": "Vienna Prime Open",
+    "tier": "TOUR_500"
+  },
+  {
+    "name": "Tokyo Rising Open",
+    "tier": "TOUR_500"
+  },
+  {
+    "name": "Rotterdam Steel Open",
+    "tier": "TOUR_500"
+  },
+  {
+    "name": "Washington Capital Open",
+    "tier": "TOUR_500"
+  },
+  {
+    "name": "Nordic Open",
+    "tier": "TOUR_250"
+  },
+  {
+    "name": "Adriatic Open",
+    "tier": "TOUR_250"
+  },
+  {
+    "name": "Baltic Cup",
+    "tier": "TOUR_250"
+  },
+  {
+    "name": "Mediterranean Open",
+    "tier": "TOUR_250"
+  },
+  {
+    "name": "Alpine Trophy",
+    "tier": "TOUR_250"
+  },
+  {
+    "name": "Pacific Challenge",
+    "tier": "TOUR_250"
+  },
+  {
+    "name": "1UPX World Finals",
+    "tier": "FINALS"
+  },
+  {
+    "name": "Elite Eight Championship",
+    "tier": "FINALS"
+  },
+  {
+    "name": "Silver Meridian Open",
+    "tier": "TOUR"
+  },
+  {
+    "name": "Neon Valley Classic",
+    "tier": "TOUR"
+  }
+]

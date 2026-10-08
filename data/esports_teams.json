@@ -1,0 +1,242 @@
+[
+  {
+    "name": "Vector Five",
+    "aim": 58,
+    "tactics": 55,
+    "map_pool": 57,
+    "clutch": 52,
+    "mental": 60,
+    "consistency": 58,
+    "form": 70
+  },
+  {
+    "name": "Northern Core",
+    "aim": 65,
+    "tactics": 66,
+    "map_pool": 70,
+    "clutch": 61,
+    "mental": 65,
+    "consistency": 75,
+    "form": 70
+  },
+  {
+    "name": "Neon Circuit",
+    "aim": 72,
+    "tactics": 77,
+    "map_pool": 83,
+    "clutch": 70,
+    "mental": 70,
+    "consistency": 92,
+    "form": 70
+  },
+  {
+    "name": "Iron Pulse",
+    "aim": 79,
+    "tactics": 88,
+    "map_pool": 60,
+    "clutch": 79,
+    "mental": 75,
+    "consistency": 74,
+    "form": 70
+  },
+  {
+    "name": "Aurora Stack",
+    "aim": 86,
+    "tactics": 61,
+    "map_pool": 73,
+    "clutch": 88,
+    "mental": 80,
+    "consistency": 91,
+    "form": 70
+  },
+  {
+    "name": "Capital Rift",
+    "aim": 58,
+    "tactics": 72,
+    "map_pool": 86,
+    "clutch": 57,
+    "mental": 85,
+    "consistency": 73,
+    "form": 70
+  },
+  {
+    "name": "Blue Meridian",
+    "aim": 65,
+    "tactics": 83,
+    "map_pool": 63,
+    "clutch": 66,
+    "mental": 90,
+    "consistency": 90,
+    "form": 70
+  },
+  {
+    "name": "Titan Grid",
+    "aim": 72,
+    "tactics": 56,
+    "map_pool": 76,
+    "clutch": 75,
+    "mental": 63,
+    "consistency": 72,
+    "form": 70
+  },
+  {
+    "name": "Eclipse Unit",
+    "aim": 79,
+    "tactics": 67,
+    "map_pool": 89,
+    "clutch": 84,
+    "mental": 68,
+    "consistency": 89,
+    "form": 70
+  },
+  {
+    "name": "Nova Protocol",
+    "aim": 86,
+    "tactics": 78,
+    "map_pool": 66,
+    "clutch": 53,
+    "mental": 73,
+    "consistency": 71,
+    "form": 70
+  },
+  {
+    "name": "Steel Horizon",
+    "aim": 58,
+    "tactics": 89,
+    "map_pool": 79,
+    "clutch": 62,
+    "mental": 78,
+    "consistency": 88,
+    "form": 70
+  },
+  {
+    "name": "Prime Voltage",
+    "aim": 65,
+    "tactics": 62,
+    "map_pool": 92,
+    "clutch": 71,
+    "mental": 83,
+    "consistency": 70,
+    "form": 70
+  },
+  {
+    "name": "Rising Array",
+    "aim": 72,
+    "tactics": 73,
+    "map_pool": 69,
+    "clutch": 80,
+    "mental": 88,
+    "consistency": 87,
+    "form": 70
+  },
+  {
+    "name": "Vertex Guard",
+    "aim": 79,
+    "tactics": 84,
+    "map_pool": 82,
+    "clutch": 89,
+    "mental": 61,
+    "consistency": 69,
+    "form": 70
+  },
+  {
+    "name": "Polar Byte",
+    "aim": 86,
+    "tactics": 57,
+    "map_pool": 59,
+    "clutch": 58,
+    "mental": 66,
+    "consistency": 86,
+    "form": 70
+  },
+  {
+    "name": "Crown Shift",
+    "aim": 58,
+    "tactics": 68,
+    "map_pool": 72,
+    "clutch": 67,
+    "mental": 71,
+    "consistency": 68,
+    "form": 70
+  },
+  {
+    "name": "Atlas Echo",
+    "aim": 65,
+    "tactics": 79,
+    "map_pool": 85,
+    "clutch": 76,
+    "mental": 76,
+    "consistency": 85,
+    "form": 70
+  },
+  {
+    "name": "Signal Forge",
+    "aim": 72,
+    "tactics": 90,
+    "map_pool": 62,
+    "clutch": 85,
+    "mental": 81,
+    "consistency": 67,
+    "form": 70
+  },
+  {
+    "name": "Night Relay",
+    "aim": 79,
+    "tactics": 63,
+    "map_pool": 75,
+    "clutch": 54,
+    "mental": 86,
+    "consistency": 84,
+    "form": 70
+  },
+  {
+    "name": "Quantum Vale",
+    "aim": 86,
+    "tactics": 74,
+    "map_pool": 88,
+    "clutch": 63,
+    "mental": 91,
+    "consistency": 66,
+    "form": 70
+  },
+  {
+    "name": "Orbit Nine",
+    "aim": 58,
+    "tactics": 85,
+    "map_pool": 65,
+    "clutch": 72,
+    "mental": 64,
+    "consistency": 83,
+    "form": 70
+  },
+  {
+    "name": "Ember Link",
+    "aim": 65,
+    "tactics": 58,
+    "map_pool": 78,
+    "clutch": 81,
+    "mental": 69,
+    "consistency": 65,
+    "form": 70
+  },
+  {
+    "name": "Shadow Harbor",
+    "aim": 72,
+    "tactics": 69,
+    "map_pool": 91,
+    "clutch": 90,
+    "mental": 74,
+    "consistency": 82,
+    "form": 70
+  },
+  {
+    "name": "Solar Frame",
+    "aim": 79,
+    "tactics": 80,
+    "map_pool": 68,
+    "clutch": 59,
+    "mental": 79,
+    "consistency": 64,
+    "form": 70
+  }
+]

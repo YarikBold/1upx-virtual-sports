@@ -1,0 +1,122 @@
+[
+  {
+    "name": "1UPX World Major",
+    "tier": "ELITE",
+    "format": "single_elimination"
+  },
+  {
+    "name": "Neon Crown Major",
+    "tier": "ELITE",
+    "format": "groups_playoff"
+  },
+  {
+    "name": "Global Nexus Championship",
+    "tier": "ELITE",
+    "format": "groups_playoff"
+  },
+  {
+    "name": "Prime Arena Masters",
+    "tier": "ELITE",
+    "format": "single_elimination"
+  },
+  {
+    "name": "Northern Clash",
+    "tier": "A",
+    "format": "groups_playoff"
+  },
+  {
+    "name": "Atlantic Masters",
+    "tier": "A",
+    "format": "groups_playoff"
+  },
+  {
+    "name": "Continental Showdown",
+    "tier": "A",
+    "format": "single_elimination"
+  },
+  {
+    "name": "Iron Circuit Finals",
+    "tier": "A",
+    "format": "groups_playoff"
+  },
+  {
+    "name": "Aurora Invitational",
+    "tier": "A",
+    "format": "groups_playoff"
+  },
+  {
+    "name": "Capital Masters",
+    "tier": "A",
+    "format": "single_elimination"
+  },
+  {
+    "name": "Vector Cup",
+    "tier": "B",
+    "format": "groups_playoff"
+  },
+  {
+    "name": "Nova Series",
+    "tier": "B",
+    "format": "groups_playoff"
+  },
+  {
+    "name": "Steel Arena",
+    "tier": "B",
+    "format": "single_elimination"
+  },
+  {
+    "name": "Pulse Championship",
+    "tier": "B",
+    "format": "groups_playoff"
+  },
+  {
+    "name": "Titan Invitational",
+    "tier": "B",
+    "format": "groups_playoff"
+  },
+  {
+    "name": "Vertex Open",
+    "tier": "B",
+    "format": "single_elimination"
+  },
+  {
+    "name": "Eclipse Cup",
+    "tier": "B",
+    "format": "groups_playoff"
+  },
+  {
+    "name": "Rising Stars Series",
+    "tier": "C",
+    "format": "groups_playoff"
+  },
+  {
+    "name": "Challenger Grid",
+    "tier": "C",
+    "format": "single_elimination"
+  },
+  {
+    "name": "Next Wave Cup",
+    "tier": "C",
+    "format": "groups_playoff"
+  },
+  {
+    "name": "Proving Grounds",
+    "tier": "C",
+    "format": "groups_playoff"
+  },
+  {
+    "name": "Obsidian Circuit Cup",
+    "tier": "REGIONAL",
+    "format": "groups_playoff"
+  },
+  {
+    "name": "Aurora Digital Invitational",
+    "tier": "PREMIER",
+    "format": "single_elimination"
+  },
+  {
+    "name": "Nova Foundry Open",
+    "tier": "REGIONAL",
+    "format": "swiss_playoff"
+  }
+]

@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String        @id @default(uuid())
+  createdAt DateTime      @default(now())
+  sessions  Session[]
+  ledger    WalletEntry[]
+  ratings   Rating[]
+  seasons   Season[]
+}
+
+model Session {
+  tokenHash String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+
+  @@index([userId])
+}
+
+model WalletEntry {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  amount         Int
+  reason         String
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Participant {
+  id           String    @id
+  sport        String
+  name         String
+  groupName    String
+  baseRating   Int
+  attributes   Json
+  ratings      Rating[]
+  homeFixtures Fixture[] @relation("Home")
+  awayFixtures Fixture[] @relation("Away")
+
+  @@unique([sport, name])
+  @@index([sport, groupName])
+}
+
+model Competition {
+  id       String    @id
+  sport    String
+  name     String
+  tier     String
+  format   String
+  metadata Json
+  fixtures Fixture[]
+
+  @@unique([sport, name])
+}
+
+model Rating {
+  id                String      @id @default(uuid())
+  userId            String
+  user              User        @relation(fields: [userId], references: [id])
+  participantId     String
+  participant       Participant @relation(fields: [participantId], references: [id])
+  powerRating       Float
+  recentForm        Json
+  fatigue           Float       @default(0)
+  streak            Int         @default(0)
+  effectiveStrength Float
+  updatedAt         DateTime    @updatedAt
+
+  @@unique([userId, participantId])
+}
+
+model Season {
+  id         String    @id
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  number     Int
+  startedAt  DateTime
+  endsAt     DateTime
+  secretSeed String
+  seedCommit String
+  status     String    @default("ACTIVE")
+  fixtures   Fixture[]
+
+  @@unique([userId, number])
+  @@index([userId, status])
+}
+
+model Fixture {
+  id             String      @id
+  seasonId       String
+  season         Season      @relation(fields: [seasonId], references: [id])
+  competitionId  String
+  competition    Competition @relation(fields: [competitionId], references: [id])
+  homeId         String
+  home           Participant @relation("Home", fields: [homeId], references: [id])
+  awayId         String
+  away           Participant @relation("Away", fields: [awayId], references: [id])
+  round          Int
+  kickoffAt      DateTime
+  endsAt         DateTime
+  seedCommit     String
+  ratingSnapshot Json
+
+  @@unique([seasonId, competitionId, round, homeId])
+  @@index([seasonId, kickoffAt])
+  @@index([homeId, kickoffAt])
+  @@index([awayId, kickoffAt])
+}
