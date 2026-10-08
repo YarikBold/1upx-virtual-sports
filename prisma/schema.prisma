@@ -92,6 +92,11 @@ model Season {
   secretSeed String
   seedCommit String
   status     String    @default("ACTIVE")
+  simulationState String  @default("READY")
+  virtualNowMs BigInt   @default(0)
+  resumedAt   DateTime?
+  pausedAt    DateTime?
+  finishedAt  DateTime?
   fixtures   Fixture[]
 
   @@unique([userId, number])

@@ -4,7 +4,7 @@ import serveStatic from '@fastify/static';
 import { PrismaClient } from '@prisma/client';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
-import { createUser, dashboard, grant, seasonView, eventsView, eventView } from './service.js';
+import { createUser, dashboard, grant, seasonView, eventsView, eventView, startSeason, controlSeason } from './service.js';
 import { sha256 } from './domain.js';
 
 function connectionShape(value: string | undefined) {
@@ -54,6 +54,8 @@ export async function createApp(db: PrismaClient) {
     return { userId: id };
   });
   app.get('/api/season', async (req, reply) => { const id = await requireUser(req, reply); return id ? seasonView(db, id) : undefined; });
+  app.post('/api/season/start', async (req, reply) => { const id = await requireUser(req, reply); if (!id) return undefined; try { return await startSeason(db, id); } catch (error) { return reply.code(409).send({ error: error instanceof Error ? error.message : 'Season start failed' }); } });
+  app.post('/api/season/control', async (req, reply) => { const id = await requireUser(req, reply); if (!id) return undefined; const action = (req.body as { action?: string } | undefined)?.action; if (!['RUN','PAUSE','RESUME','FINISH'].includes(action ?? '')) return reply.code(400).send({ error: 'Invalid season action' }); try { return await controlSeason(db, id, action as 'RUN'|'PAUSE'|'RESUME'|'FINISH'); } catch (error) { return reply.code(409).send({ error: error instanceof Error ? error.message : 'Season control failed' }); } });
   app.get('/api/virtual/events', async (req, reply) => {
     const id = await requireUser(req, reply); if (!id) return undefined;
     const query = req.query as { status?: string; competition?: string; page?: string; page_size?: string };

@@ -30,3 +30,11 @@ test('LIVE prices depend on score, time and red cards', () => {
   assert.notDeepEqual(baseline, liveMarkets(snapshot, { ...view, score: { home: 2, away: 0 } }));
   assert.notDeepEqual(baseline, liveMarkets(snapshot, { ...view, reds: { home: 1, away: 0 } }));
 });
+test('LIVE odds stay calibrated across scoreline scenarios', async () => {
+  const { liveMarkets } = await import('../server/live.js');
+  for (const [minute, score] of [[1, { home: 0, away: 0 }], [14, { home: 1, away: 0 }], [45, { home: 1, away: 0 }], [85, { home: 1, away: 0 }], [80, { home: 2, away: 0 }]] as const) {
+    const market = liveMarkets(snapshot, { minute, score, reds: { home: 0, away: 0 }, timeline: [], market_status: 'OPEN' }).find(m => m.group === '1X2')!;
+    assert.ok(market.outcomes.every(o => Number.isFinite(o.odds) && o.odds >= 1.01));
+    if (minute < 45) assert.ok(market.outcomes[0].odds > 1.1);
+  }
+});

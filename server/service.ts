@@ -7,6 +7,7 @@ import type { RatingSnapshot } from './domain.js';
 
 export const STARTING_GRANT = 10_000;
 export type Db = PrismaClient;
+type Tx = Parameters<Parameters<Db['$transaction']>[0]>[0];
 
 export async function createUser(db: Db) {
   const token = randomBytes(32).toString('hex');
@@ -35,37 +36,70 @@ export async function commitFinishedResults(tx: Parameters<Parameters<Db['$trans
   }
 }
 
+async function createSeasonTx(tx: Tx, userId: string, now: number) {
+  const teams = await tx.participant.findMany({ where: { sport: 'football' }, orderBy: { id: 'asc' } });
+  if (teams.length !== 40) throw new Error('Catalogue not seeded');
+  const last = await tx.season.findFirst({ where: { userId }, orderBy: { number: 'desc' } });
+  const secretSeed = randomBytes(32).toString('hex');
+  const season = await tx.season.create({ data: { id: randomUUID(), userId, number: (last?.number ?? 0) + 1, startedAt: new Date(now), endsAt: new Date(now + DAY), secretSeed, seedCommit: sha256(secretSeed), simulationState: 'READY', virtualNowMs: 0 } });
+  const ratings = new Map<string, { powerRating: number; effectiveStrength: number }>();
+  for (const team of teams) {
+    const powerRating = 1500 + (team.baseRating - 70) * 16;
+    const rating = await tx.rating.upsert({ where: { userId_participantId: { userId, participantId: team.id } }, update: {}, create: { userId, participantId: team.id, powerRating, recentForm: [], effectiveStrength: effectiveStrength(team.baseRating, powerRating, []) } });
+    ratings.set(team.id, rating);
+  }
+  const competitions = await tx.competition.findMany({ where: { sport: 'football' } });
+  const byName = new Map(competitions.map((c: { name: string; id: string }) => [c.name, c.id]));
+  const fixtures = schedule(season.id, secretSeed, now, teams).map(({ group, ...fixture }) => ({ ...fixture, seasonId: season.id, competitionId: byName.get(group)!, ratingSnapshot: { home: ratings.get(fixture.homeId)!, away: ratings.get(fixture.awayId)! } }));
+  await tx.fixture.createMany({ data: fixtures });
+  return season;
+}
+
+export async function startSeason(db: Db, userId: string, now = Date.now()) {
+  return db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id=${userId} FOR UPDATE`;
+    const active = await tx.season.findFirst({ where: { userId, simulationState: { in: ['READY', 'RUNNING', 'PAUSED', 'FINISHING'] } }, orderBy: { number: 'desc' } });
+    if (active) return active;
+    return createSeasonTx(tx, userId, now);
+  }, { timeout: 20_000 });
+}
+
 export async function currentSeason(db: Db, userId: string, now = Date.now()) {
   return db.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM "User" WHERE id=${userId} FOR UPDATE`;
-    const expired = await tx.season.findFirst({ where: { userId, status: 'ACTIVE', endsAt: { lte: new Date(now) } }, orderBy: { number: 'desc' } });
-    if (expired) {
-      await commitFinishedResults(tx, expired.id, expired.secretSeed, now);
-      await tx.season.update({ where: { id: expired.id }, data: { status: 'FINISHED' } });
+    const season = await tx.season.findFirst({ where: { userId, simulationState: { in: ['READY', 'RUNNING', 'PAUSED', 'FINISHING'] } }, orderBy: { number: 'desc' } });
+    if (!season) throw new Error('SEASON_NOT_STARTED');
+    if (season.simulationState === 'RUNNING' && season.resumedAt) {
+      const elapsed = Math.max(0, now - season.resumedAt.getTime());
+      await tx.season.update({ where: { id: season.id }, data: { virtualNowMs: Number(season.virtualNowMs) + elapsed, resumedAt: new Date(now) } });
+      return { ...season, virtualNowMs: BigInt(Number(season.virtualNowMs) + elapsed), resumedAt: new Date(now) };
     }
-    const existing = await tx.season.findFirst({ where: { userId, status: 'ACTIVE' }, orderBy: { number: 'desc' } });
-    if (existing) return existing;
-    const teams = await tx.participant.findMany({ where: { sport: 'football' }, orderBy: { id: 'asc' } });
-    if (teams.length !== 40) throw new Error('Catalogue not seeded');
-    const last = await tx.season.findFirst({ where: { userId }, orderBy: { number: 'desc' } });
-    const secretSeed = randomBytes(32).toString('hex');
-    const season = await tx.season.create({ data: { id: randomUUID(), userId, number: (last?.number ?? 0) + 1, startedAt: new Date(now), endsAt: new Date(now + DAY), secretSeed, seedCommit: sha256(secretSeed) } });
-    const ratings = new Map<string, { powerRating: number; effectiveStrength: number }>();
-    for (const team of teams) {
-      const powerRating = 1500 + (team.baseRating - 70) * 16;
-      const rating = await tx.rating.upsert({ where: { userId_participantId: { userId, participantId: team.id } }, update: {}, create: { userId, participantId: team.id, powerRating, recentForm: [], effectiveStrength: effectiveStrength(team.baseRating, powerRating, []) } });
-      ratings.set(team.id, rating);
-    }
-    const competitions = await tx.competition.findMany({ where: { sport: 'football' } });
-    const byName = new Map(competitions.map(c => [c.name, c.id]));
-    const fixtures = schedule(season.id, secretSeed, now, teams).map(({ group, ...fixture }) => ({ ...fixture, seasonId: season.id, competitionId: byName.get(group)!, ratingSnapshot: { home: ratings.get(fixture.homeId)!, away: ratings.get(fixture.awayId)! } }));
-    await tx.fixture.createMany({ data: fixtures });
     return season;
   }, { timeout: 20_000 });
 }
 
-function publicSeason(season: { id: string; number: number; startedAt: Date; endsAt: Date; seedCommit: string; status: string }, now: number) {
-  return { season_id: season.id, season_number: season.number, started_at: season.startedAt.toISOString(), ends_at: season.endsAt.toISOString(), server_now: new Date(now).toISOString(), status: season.status, seed_commit: season.seedCommit };
+export async function controlSeason(db: Db, userId: string, action: 'RUN' | 'PAUSE' | 'RESUME' | 'FINISH', now = Date.now()) {
+  return db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id=${userId} FOR UPDATE`;
+    const season = await tx.season.findFirst({ where: { userId, simulationState: { in: ['READY', 'RUNNING', 'PAUSED', 'FINISHING'] } }, orderBy: { number: 'desc' } });
+    if (!season) throw new Error('SEASON_NOT_STARTED');
+    const elapsed = season.simulationState === 'RUNNING' && season.resumedAt ? Math.max(0, now - season.resumedAt.getTime()) : 0;
+    const virtualNowMs = Number(season.virtualNowMs) + elapsed;
+    const next = action === 'RUN' && season.simulationState === 'READY' ? 'RUNNING' : action === 'RESUME' && season.simulationState === 'PAUSED' ? 'RUNNING' : action === 'PAUSE' && season.simulationState === 'RUNNING' ? 'PAUSED' : action === 'FINISH' && ['READY','RUNNING','PAUSED'].includes(season.simulationState) ? 'FINISHING' : null;
+    if (!next) throw new Error(`INVALID_SEASON_TRANSITION:${season.simulationState}:${action}`);
+    const updated = await tx.season.update({ where: { id: season.id }, data: { simulationState: next, status: next === 'FINISHING' ? 'FINISHED' : 'ACTIVE', virtualNowMs, resumedAt: next === 'RUNNING' ? new Date(now) : null, pausedAt: next === 'PAUSED' ? new Date(now) : null, finishedAt: next === 'FINISHING' ? new Date(now) : null } });
+    if (next === 'FINISHING') await tx.season.update({ where: { id: season.id }, data: { simulationState: 'FINISHED' } });
+    return updated;
+  }, { timeout: 20_000 });
+}
+
+function publicSeason(season: { id: string; number: number; startedAt: Date; endsAt: Date; seedCommit: string; status: string; simulationState?: string; virtualNowMs?: bigint | number }, now: number) {
+  return { season_id: season.id, season_number: season.number, started_at: season.startedAt.toISOString(), ends_at: season.endsAt.toISOString(), server_now: new Date(now).toISOString(), status: season.status, simulation_state: season.simulationState ?? 'READY', virtual_now_ms: Number(season.virtualNowMs ?? 0), seed_commit: season.seedCommit };
+}
+
+function simulationNow(season: { startedAt: Date; virtualNowMs?: bigint | number; simulationState?: string; resumedAt?: Date | null }, realNow: number) {
+  const elapsed = Number(season.virtualNowMs ?? 0) + (season.simulationState === 'RUNNING' && season.resumedAt ? Math.max(0, realNow - season.resumedAt.getTime()) : 0);
+  return season.startedAt.getTime() + elapsed;
 }
 
 async function seasonCounts(db: Db, seasonId: string, now: number) {
@@ -93,30 +127,31 @@ async function fixtureQuery(db: Db, seasonId: string, now: number, id?: string) 
 }
 
 export async function seasonView(db: Db, userId: string, now = Date.now()) {
-  const season = await currentSeason(db, userId, now);
-  const counts = await seasonCounts(db, season.id, now);
-  return { ...publicSeason(season, now), counts, universe: { sport: 'football', fictional: true, leagues: 4, clubs: 40 } };
+  try { const season = await currentSeason(db, userId, now); const counts = await seasonCounts(db, season.id, simulationNow(season, now)); return { ...publicSeason(season, now), counts, universe: { sport: 'football', fictional: true, leagues: 4, clubs: 40 } }; }
+  catch (error) { if (error instanceof Error && error.message === 'SEASON_NOT_STARTED') return { status: 'NOT_STARTED', simulation_state: 'NOT_STARTED', server_now: new Date(now).toISOString(), counts: { upcoming: 0, live: 0 }, universe: { sport: 'football', fictional: true, leagues: 4, clubs: 40 } }; throw error; }
 }
 
 export async function eventsView(db: Db, userId: string, filters: { status?: string; competition?: string; page?: number; pageSize?: number } = {}, now = Date.now()) {
   const season = await currentSeason(db, userId, now);
+  const simNow = simulationNow(season, now);
   const page = Math.max(1, filters.page ?? 1); const pageSize = Math.min(50, Math.max(1, filters.pageSize ?? 24));
-  await db.$transaction(tx => commitFinishedResults(tx, season.id, season.secretSeed, now));
-  const all = await fixtureQuery(db, season.id, now);
-  const filtered = all.filter(f => (!filters.competition || f.competition.id === filters.competition || f.competition.name === filters.competition) && (!filters.status || fixtureState(f.kickoffAt, f.endsAt, now) === filters.status));
-  filtered.sort((a, b) => { const sa = fixtureState(a.kickoffAt, a.endsAt, now); const sb = fixtureState(b.kickoffAt, b.endsAt, now); if (!filters.status && sa !== sb) return sa === 'LIVE' ? -1 : sb === 'LIVE' ? 1 : sa === 'UPCOMING' ? -1 : 1; return sa === 'UPCOMING' ? a.kickoffAt.getTime() - b.kickoffAt.getTime() : b.endsAt.getTime() - a.endsAt.getTime(); });
-  const items = filtered.slice((page - 1) * pageSize, page * pageSize).map(f => fixturePublic(f, now, footballMarkets(f.ratingSnapshot as never, fixtureState(f.kickoffAt, f.endsAt, now))));
-  const counts = await seasonCounts(db, season.id, now);
+  await db.$transaction(tx => commitFinishedResults(tx, season.id, season.secretSeed, simNow));
+  const all = await fixtureQuery(db, season.id, simNow);
+  const filtered = all.filter(f => (!filters.competition || f.competition.id === filters.competition || f.competition.name === filters.competition) && (!filters.status || fixtureState(f.kickoffAt, f.endsAt, simNow) === filters.status));
+  filtered.sort((a, b) => { const sa = fixtureState(a.kickoffAt, a.endsAt, simNow); const sb = fixtureState(b.kickoffAt, b.endsAt, simNow); if (!filters.status && sa !== sb) return sa === 'LIVE' ? -1 : sb === 'LIVE' ? 1 : sa === 'UPCOMING' ? -1 : 1; return sa === 'UPCOMING' ? a.kickoffAt.getTime() - b.kickoffAt.getTime() : b.endsAt.getTime() - a.endsAt.getTime(); });
+  const items = filtered.slice((page - 1) * pageSize, page * pageSize).map(f => fixturePublic(f, simNow, footballMarkets(f.ratingSnapshot as never, fixtureState(f.kickoffAt, f.endsAt, simNow))));
+  const counts = await seasonCounts(db, season.id, simNow);
   return { server_now: new Date(now).toISOString(), season: publicSeason(season, now), competitions: [...new Map(all.map(f => [f.competition.id, { id: f.competition.id, name: f.competition.name }])).values()], counts, filters: { status: filters.status ?? 'ALL', competition: filters.competition ?? 'ALL', page, page_size: pageSize, total: filtered.length, pages: Math.max(1, Math.ceil(filtered.length / pageSize)) }, events: items };
 }
 
 export async function eventView(db: Db, userId: string, fixtureId: string, now = Date.now()) {
   const season = await currentSeason(db, userId, now);
-  await db.$transaction(tx => commitFinishedResults(tx, season.id, season.secretSeed, now));
-  const fixture = (await fixtureQuery(db, season.id, now, fixtureId))[0];
+  const simNow = simulationNow(season, now);
+  await db.$transaction(tx => commitFinishedResults(tx, season.id, season.secretSeed, simNow));
+  const fixture = (await fixtureQuery(db, season.id, simNow, fixtureId))[0];
   if (!fixture) return null;
-  const state = fixtureState(fixture.kickoffAt, fixture.endsAt, now);
-  return { server_now: new Date(now).toISOString(), season: publicSeason(season, now), event: fixturePublic(fixture, now, footballMarkets(fixture.ratingSnapshot as never, state)), form: { home: [], away: [] }, ratings: fixture.ratingSnapshot, markets_status: fixturePublic(fixture, now).market_status };
+  const state = fixtureState(fixture.kickoffAt, fixture.endsAt, simNow);
+  return { server_now: new Date(now).toISOString(), season: publicSeason(season, now), event: fixturePublic(fixture, simNow, footballMarkets(fixture.ratingSnapshot as never, state)), form: { home: [], away: [] }, ratings: fixture.ratingSnapshot, markets_status: fixturePublic(fixture, simNow).market_status };
 }
 
 export async function dashboard(db: Db, userId: string, now = Date.now()) {

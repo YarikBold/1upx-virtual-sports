@@ -64,21 +64,24 @@ export function expectedGoalsFromStrength(homeStrength: number, awayStrength: nu
   };
 }
 
-export function footballMarkets(snapshot: RatingSnapshot, state: 'UPCOMING' | 'LIVE' | 'FINISHED', live?: { remaining: number; score: { home: number; away: number } }): FootballMarket[] {
+export function footballMarkets(snapshot: RatingSnapshot, state: 'UPCOMING' | 'LIVE' | 'FINISHED', live?: { remaining: number; minute?: number; score: { home: number; away: number } }): FootballMarket[] {
   if (state !== 'UPCOMING') return [];
   const lambdas = expectedGoalsFromStrength(snapshot.home.effectiveStrength, snapshot.away.effectiveStrength);
+  const baseGrid = probabilityGrid(lambdas.home, lambdas.away);
   const grid = probabilityGrid(lambdas.home * (live?.remaining ?? 1), lambdas.away * (live?.remaining ?? 1)).map(c => ({ ...c, h: c.h + (live?.score.home ?? 0), a: c.a + (live?.score.away ?? 0) }));
-  const p1 = sumProbability(grid, (h, a) => h > a);
-  const px = sumProbability(grid, (h, a) => h === a);
-  const p2 = sumProbability(grid, (h, a) => h < a);
-  const bttsYes = sumProbability(grid, (h, a) => h > 0 && a > 0);
+  const blend = live ? clamp((live.minute ?? 0) / 90, 0, 1) : 1;
+  const probability = (fn: (h: number, a: number) => boolean) => sumProbability(baseGrid, fn) * (1 - blend) + sumProbability(grid, fn) * blend;
+  const p1 = probability((h, a) => h > a);
+  const px = probability((h, a) => h === a);
+  const p2 = probability((h, a) => h < a);
+  const bttsYes = probability((h, a) => h > 0 && a > 0);
   const markets: FootballMarket[] = [{ key: '1x2', group: '1X2', name: '1X2', status: 'OPEN', outcomes: outcomes([['home', 'П1', p1], ['draw', 'X', px], ['away', 'П2', p2]]) }, { key: 'btts', group: 'BTTS', name: 'Обе забьют', status: 'OPEN', outcomes: outcomes([['yes', 'Да', bttsYes], ['no', 'Нет', 1 - bttsYes]]) }];
   for (const line of [0.5, 1.5, 2.5, 3.5, 4.5, 5.5]) {
-    const over = sumProbability(grid, (h, a) => h + a > line);
+    const over = probability((h, a) => h + a > line);
     markets.push({ key: `total-${line}`, group: 'TOTALS', name: `Тотал ${line}`, line, status: 'OPEN', outcomes: outcomes([[`over:${line}`, `ТБ ${line}`, over], [`under:${line}`, `ТМ ${line}`, 1 - over]]) });
   }
   for (const line of [-2.5, -1.5, -0.5, 0.5, 1.5, 2.5]) {
-    const home = sumProbability(grid, (h, a) => h + line > a);
+    const home = probability((h, a) => h + line > a);
     markets.push({ key: `handicap-${line}`, group: 'HANDICAP', name: `Фора ${line > 0 ? '+' : ''}${line}`, line, status: 'OPEN', outcomes: outcomes([[`home:${line}`, `П1 ${line > 0 ? '+' : ''}${line}`, home], [`away:${line}`, `П2 ${line > 0 ? '-' : '+'}${Math.abs(line)}`, 1 - home]]) });
   }
   return markets;

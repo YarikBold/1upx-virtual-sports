@@ -44,5 +44,5 @@ export function liveView(timeline: LiveEvent[], kickoff: Date, finish: Date, now
 }
 export function liveMarkets(snapshot: RatingSnapshot, view: ReturnType<typeof liveView>) {
   const adjusted = { home: { ...snapshot.home, effectiveStrength: snapshot.home.effectiveStrength - view.reds.home * 12 }, away: { ...snapshot.away, effectiveStrength: snapshot.away.effectiveStrength - view.reds.away * 12 } };
-  return footballMarkets(adjusted, 'UPCOMING', { remaining: (90 - view.minute) / 90, score: view.score }).map(m => ({ ...m, status: view.market_status }));
+  return footballMarkets(adjusted, 'UPCOMING', { remaining: (90 - view.minute) / 90, minute: view.minute, score: view.score }).map(m => ({ ...m, status: view.market_status }));
 }
