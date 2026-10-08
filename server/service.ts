@@ -1,6 +1,9 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
-import { DAY, sha256, schedule, effectiveStrength, fixtureState, finalScore, footballMarkets, type FootballMarket } from './domain.js';
+import { DAY, sha256, schedule, effectiveStrength, fixtureState, footballMarkets, type FootballMarket } from './domain.js';
+
+import { simulateLive, liveView, liveMarkets, type LiveEvent } from './live.js';
+import type { RatingSnapshot } from './domain.js';
 
 export const STARTING_GRANT = 10_000;
 export type Db = PrismaClient;
@@ -21,10 +24,14 @@ export async function grant(db: Db, userId: string) {
 }
 
 export async function commitFinishedResults(tx: Parameters<Parameters<Db['$transaction']>[0]>[0], seasonId: string, secret: string, now: number) {
-  const fixtures = await tx.fixture.findMany({ where: { seasonId, endsAt: { lte: new Date(now) }, finalHomeScore: null }, select: { id: true, ratingSnapshot: true } });
+  const fixtures = await tx.fixture.findMany({ where: { seasonId, kickoffAt: { lte: new Date(now) }, finalHomeScore: null } });
   for (const fixture of fixtures) {
-    const score = finalScore(fixture.ratingSnapshot as never, secret, fixture.id);
-    await tx.fixture.updateMany({ where: { id: fixture.id, finalHomeScore: null }, data: { finalHomeScore: score.home, finalAwayScore: score.away, resultCommittedAt: new Date(now) } });
+    const timeline = fixture.liveTimeline as LiveEvent[] | null ?? simulateLive(fixture.ratingSnapshot as RatingSnapshot, secret, fixture.id);
+    // Same deterministic timeline wins on concurrent requests; committed scores are immutable.
+    if (fixture.endsAt.getTime() <= now) {
+      const { score } = liveView(timeline, fixture.kickoffAt, fixture.endsAt, now);
+      await tx.fixture.updateMany({ where: { id: fixture.id, finalHomeScore: null }, data: { finalHomeScore: score.home, finalAwayScore: score.away, resultCommittedAt: new Date(now), liveTimeline: timeline } });
+    } else if (!fixture.liveTimeline) await tx.fixture.update({ where: { id: fixture.id }, data: { liveTimeline: timeline } });
   }
 }
 
@@ -69,14 +76,20 @@ async function seasonCounts(db: Db, seasonId: string, now: number) {
   return { upcoming, live };
 }
 
-type FixturePublicInput = { id: string; seasonId: string; competitionId: string; round: number; kickoffAt: Date; endsAt: Date; homeId: string; awayId: string; home: { id: string; name: string; baseRating: number }; away: { id: string; name: string; baseRating: number }; competition: { id: string; name: string }; finalHomeScore: number | null; finalAwayScore: number | null; ratingSnapshot: unknown };
+type FixturePublicInput = { id: string; seasonId: string; competitionId: string; round: number; kickoffAt: Date; endsAt: Date; homeId: string; awayId: string; home: { id: string; name: string; baseRating: number; logoUrl?: string | null }; away: { id: string; name: string; baseRating: number; logoUrl?: string | null }; competition: { id: string; name: string }; finalHomeScore: number | null; finalAwayScore: number | null; ratingSnapshot: unknown; liveTimeline?: unknown };
 function fixturePublic(fixture: FixturePublicInput, now: number, markets: FootballMarket[] = []) {
   const state = fixtureState(fixture.kickoffAt, fixture.endsAt, now);
-  return { fixture_id: fixture.id, season_id: fixture.seasonId, competition_id: fixture.competitionId, league: fixture.competition.name, round: fixture.round, home_team_id: fixture.homeId, away_team_id: fixture.awayId, home_team: { id: fixture.homeId, name: fixture.home.name, initials: fixture.home.name.split(/\s+/).map((part: string) => part[0]).join('').slice(0, 3).toUpperCase(), base_rating: fixture.home.baseRating }, away_team: { id: fixture.awayId, name: fixture.away.name, initials: fixture.away.name.split(/\s+/).map((part: string) => part[0]).join('').slice(0, 3).toUpperCase(), base_rating: fixture.away.baseRating }, kickoff_at: fixture.kickoffAt.toISOString(), finish_at: fixture.endsAt.toISOString(), duration_seconds: Math.round((fixture.endsAt.getTime() - fixture.kickoffAt.getTime()) / 1000), status: state, final_score: state === 'FINISHED' && fixture.finalHomeScore !== null ? { home: fixture.finalHomeScore, away: fixture.finalAwayScore } : null, markets, available_markets: markets.length, server_now: new Date(now).toISOString() };
+  const live = state !== 'UPCOMING' && Array.isArray(fixture.liveTimeline) ? liveView(fixture.liveTimeline as LiveEvent[], fixture.kickoffAt, fixture.endsAt, now) : null;
+  if (state === 'LIVE' && live) {
+    const check = live.timeline.at(-1);
+    const pricing = live.market_status === 'SUSPENDED' && check ? liveView(fixture.liveTimeline as LiveEvent[], fixture.kickoffAt, fixture.endsAt, fixture.kickoffAt.getTime() + (check.minute - 1) / 90 * (fixture.endsAt.getTime() - fixture.kickoffAt.getTime())) : live;
+    markets = liveMarkets(fixture.ratingSnapshot as RatingSnapshot, pricing).map(m => ({ ...m, status: live.market_status }));
+  }
+  return { minute: live?.minute ?? null, score: state === 'LIVE' ? live?.score ?? null : null, timeline: live?.timeline ?? [], market_status: state === 'FINISHED' ? 'CLOSED' : live?.market_status ?? (state === 'LIVE' ? 'SUSPENDED' : 'OPEN'), fixture_id: fixture.id, season_id: fixture.seasonId, competition_id: fixture.competitionId, league: fixture.competition.name, round: fixture.round, home_team_id: fixture.homeId, away_team_id: fixture.awayId, home_team: { id: fixture.homeId, name: fixture.home.name, initials: fixture.home.name.split(/\s+/).map((part: string) => part[0]).join('').slice(0, 3).toUpperCase(), logoUrl: fixture.home.logoUrl ?? null, base_rating: fixture.home.baseRating }, away_team: { id: fixture.awayId, name: fixture.away.name, initials: fixture.away.name.split(/\s+/).map((part: string) => part[0]).join('').slice(0, 3).toUpperCase(), logoUrl: fixture.away.logoUrl ?? null, base_rating: fixture.away.baseRating }, kickoff_at: fixture.kickoffAt.toISOString(), finish_at: fixture.endsAt.toISOString(), duration_seconds: Math.round((fixture.endsAt.getTime() - fixture.kickoffAt.getTime()) / 1000), status: state, final_score: state === 'FINISHED' && fixture.finalHomeScore !== null ? { home: fixture.finalHomeScore, away: fixture.finalAwayScore } : null, markets, available_markets: markets.length, server_now: new Date(now).toISOString() };
 }
 
 async function fixtureQuery(db: Db, seasonId: string, now: number, id?: string) {
-  return db.fixture.findMany({ where: { seasonId, ...(id ? { id } : {}) }, include: { home: { select: { id: true, name: true, baseRating: true } }, away: { select: { id: true, name: true, baseRating: true } }, competition: { select: { id: true, name: true } } }, orderBy: { kickoffAt: 'asc' } });
+  return db.fixture.findMany({ where: { seasonId, ...(id ? { id } : {}) }, include: { home: { select: { id: true, name: true, baseRating: true, logoUrl: true } }, away: { select: { id: true, name: true, baseRating: true, logoUrl: true } }, competition: { select: { id: true, name: true } } }, orderBy: { kickoffAt: 'asc' } });
 }
 
 export async function seasonView(db: Db, userId: string, now = Date.now()) {
@@ -103,7 +116,7 @@ export async function eventView(db: Db, userId: string, fixtureId: string, now =
   const fixture = (await fixtureQuery(db, season.id, now, fixtureId))[0];
   if (!fixture) return null;
   const state = fixtureState(fixture.kickoffAt, fixture.endsAt, now);
-  return { server_now: new Date(now).toISOString(), season: publicSeason(season, now), event: fixturePublic(fixture, now, footballMarkets(fixture.ratingSnapshot as never, state)), form: { home: [], away: [] }, ratings: fixture.ratingSnapshot, markets_status: state === 'UPCOMING' ? 'OPEN' : 'CLOSED' };
+  return { server_now: new Date(now).toISOString(), season: publicSeason(season, now), event: fixturePublic(fixture, now, footballMarkets(fixture.ratingSnapshot as never, state)), form: { home: [], away: [] }, ratings: fixture.ratingSnapshot, markets_status: fixturePublic(fixture, now).market_status };
 }
 
 export async function dashboard(db: Db, userId: string, now = Date.now()) {

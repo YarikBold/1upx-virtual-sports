@@ -44,6 +44,7 @@ model Participant {
   name         String
   groupName    String
   baseRating   Int
+  logoUrl      String?
   attributes   Json
   ratings      Rating[]
   homeFixtures Fixture[] @relation("Home")
@@ -112,6 +113,7 @@ model Fixture {
   endsAt            DateTime
   seedCommit        String
   ratingSnapshot    Json
+  liveTimeline      Json?
   finalHomeScore    Int?
   finalAwayScore    Int?
   resultCommittedAt DateTime?

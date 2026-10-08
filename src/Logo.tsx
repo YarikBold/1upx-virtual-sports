@@ -1,0 +1,3 @@
+export function Logo() {
+  return <svg viewBox="0 0 240 80" role="img" aria-label="1UPX Virtual Sports" style={{ width: '100%', maxWidth: 200, height: 'auto' }}><path fill="#c7ff36" d="M4 16 22 4h16v54H23V23L4 35z"/><path fill="white" d="M47 6h14v34q0 6 7 6t7-6V6h14v35q0 18-21 18T47 41zM99 6h24q22 0 22 18t-22 18h-10v16H99zm14 12v12h10q8 0 8-6t-8-6z"/><path fill="#c7ff36" d="m152 6 18 25-20 27h18l11-16 11 16h18l-20-27 18-25h-18l-9 14-9-14z"/><path stroke="#c7ff36" strokeWidth="2" d="M5 69h203"/><text x="5" y="79" fill="white" fontFamily="sans-serif" fontSize="8" letterSpacing="3">VIRTUAL SPORTS</text></svg>;
+}

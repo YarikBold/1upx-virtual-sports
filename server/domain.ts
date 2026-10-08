@@ -52,7 +52,7 @@ export function poissonSample(lambda: number,secret: string,index: number){
 
 export type RatingSnapshot = { home: { powerRating: number; effectiveStrength: number }; away: { powerRating: number; effectiveStrength: number } };
 export type MarketOutcome = { selection: string; label: string; odds: number; fairProbability: number };
-export type FootballMarket = { key: string; group: '1X2' | 'BTTS' | 'TOTALS' | 'HANDICAP'; name: string; line?: number; status: 'OPEN' | 'CLOSED'; outcomes: MarketOutcome[] };
+export type FootballMarket = { key: string; group: '1X2' | 'BTTS' | 'TOTALS' | 'HANDICAP'; name: string; line?: number; status: 'OPEN' | 'SUSPENDED' | 'CLOSED'; outcomes: MarketOutcome[] };
 const roundedOdds = (probability: number, margin = 0.07) => Math.max(1.01, Math.round((1 / Math.max(0.01, probability * (1 + margin))) * 100) / 100);
 const sumProbability = (grid: ReturnType<typeof probabilityGrid>, fn: (h: number, a: number) => boolean) => grid.reduce((sum, cell) => sum + (fn(cell.h, cell.a) ? cell.p : 0), 0);
 const outcomes = (values: Array<[string, string, number]>): MarketOutcome[] => values.map(([selection, label, p]) => ({ selection, label, odds: roundedOdds(p), fairProbability: Number(p.toFixed(6)) }));
@@ -64,10 +64,10 @@ export function expectedGoalsFromStrength(homeStrength: number, awayStrength: nu
   };
 }
 
-export function footballMarkets(snapshot: RatingSnapshot, state: 'UPCOMING' | 'LIVE' | 'FINISHED'): FootballMarket[] {
+export function footballMarkets(snapshot: RatingSnapshot, state: 'UPCOMING' | 'LIVE' | 'FINISHED', live?: { remaining: number; score: { home: number; away: number } }): FootballMarket[] {
   if (state !== 'UPCOMING') return [];
   const lambdas = expectedGoalsFromStrength(snapshot.home.effectiveStrength, snapshot.away.effectiveStrength);
-  const grid = probabilityGrid(lambdas.home, lambdas.away);
+  const grid = probabilityGrid(lambdas.home * (live?.remaining ?? 1), lambdas.away * (live?.remaining ?? 1)).map(c => ({ ...c, h: c.h + (live?.score.home ?? 0), a: c.a + (live?.score.away ?? 0) }));
   const p1 = sumProbability(grid, (h, a) => h > a);
   const px = sumProbability(grid, (h, a) => h === a);
   const p2 = sumProbability(grid, (h, a) => h < a);
