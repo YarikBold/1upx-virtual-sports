@@ -28,7 +28,13 @@ export async function createApp(db: PrismaClient) {
     return id;
   }
   app.get('/api/health', async (_req, reply) => {
-    try { await db.$queryRaw`SELECT 1`; return { status: 'ok', database: 'postgresql', phase: '1-4' }; } catch { return reply.code(503).send({ status: 'unavailable', database: 'disconnected' }); }
+    try { await db.$queryRaw`SELECT 1`; return { status: 'ok', database: 'postgresql', phase: '1-4', server_now: new Date().toISOString() }; }
+    catch (error) {
+      const code = typeof error === 'object' && error && 'code' in error ? String((error as { code?: unknown }).code) : '';
+      const message = error instanceof Error ? error.message : String(error);
+      const error_code = /^P1\d{3}$/.test(code) ? code : /ENOTFOUND|EAI_AGAIN/i.test(message) ? 'DNS_ERROR' : /TLS|SSL|certificate/i.test(message) ? 'TLS_ERROR' : /URL|Invalid/i.test(message) ? 'P1013' : 'DATABASE_UNAVAILABLE';
+      return reply.code(503).send({ status: 'unavailable', database: 'disconnected', error_code, server_now: new Date().toISOString() });
+    }
   });
   app.post('/api/session', async (req, reply) => {
     let id = await userId(req);
