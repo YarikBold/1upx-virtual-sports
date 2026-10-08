@@ -1,2 +1,2 @@
-ALTER TABLE "Participant" ADD COLUMN "logoUrl" TEXT;
-ALTER TABLE "Fixture" ADD COLUMN "liveTimeline" JSONB;
+ALTER TABLE "Participant" ADD COLUMN IF NOT EXISTS "logoUrl" TEXT;
+ALTER TABLE "Fixture" ADD COLUMN IF NOT EXISTS "liveTimeline" JSONB;
