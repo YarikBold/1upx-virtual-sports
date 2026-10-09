@@ -118,6 +118,7 @@ model Fixture {
   endsAt            DateTime
   seedCommit        String
   ratingSnapshot    Json
+  cancellationReason String?
   liveTimeline      Json?
   finalHomeScore    Int?
   finalAwayScore    Int?

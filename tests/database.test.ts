@@ -1,9 +1,35 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PrismaClient } from '@prisma/client';
-import { createUser, currentSeason, dashboard, eventView, STARTING_GRANT } from '../server/service.js';
-const db=new PrismaClient();
-test('PostgreSQL persists a user, one-time grant, and 24-hour season',async()=>{
-  const user=await createUser(db);const first=await currentSeason(db,user.id,Date.parse('2026-10-08T00:00:00Z'));const second=await currentSeason(db,user.id,Date.parse('2026-10-08T01:00:00Z'));assert.equal(first.id,second.id);assert.equal(first.endsAt.getTime()-first.startedAt.getTime(),86_400_000);const view=await dashboard(db,user.id,Date.parse('2026-10-08T01:00:00Z'));assert.equal(view.balance,STARTING_GRANT);assert.equal(view.fixtures.length,100);assert.equal(view.seed_commit.length,64);const firstFixture=await db.fixture.findFirst({where:{seasonId:first.id},orderBy:{kickoffAt:'asc'}});assert.ok(firstFixture);const live=await eventView(db,user.id,firstFixture!.id,firstFixture!.kickoffAt.getTime()+1);assert.equal(live?.event.status,'LIVE');assert.equal(live?.event.final_score,null);assert.equal(live?.event.markets.length,0);const finished=await eventView(db,user.id,firstFixture!.id,firstFixture!.endsAt.getTime()+1);const finishedAgain=await eventView(db,user.id,firstFixture!.id,firstFixture!.endsAt.getTime()+2);assert.equal(finished?.event.status,'FINISHED');assert.deepEqual(finished?.event.final_score,finishedAgain?.event.final_score);await db.session.deleteMany({where:{userId:user.id}});await db.walletEntry.deleteMany({where:{userId:user.id}});await db.rating.deleteMany({where:{userId:user.id}});await db.fixture.deleteMany({where:{season:{userId:user.id}}});await db.season.deleteMany({where:{userId:user.id}});await db.user.delete({where:{id:user.id}});
+import { createUser, startSeason, controlSeason, currentSeason, dashboard, eventView, STARTING_GRANT } from '../server/service.js';
+const db = new PrismaClient();
+
+test('PostgreSQL persists a user, one-time grant, and 24-hour season', async () => {
+  const base = Date.parse('2026-10-08T00:00:00Z');
+  const user = await createUser(db);
+  const first = await startSeason(db, user.id, base);
+  await controlSeason(db, user.id, 'RUN', base);
+  const firstFixture = await db.fixture.findFirst({ where: { seasonId: first.id }, orderBy: { kickoffAt: 'asc' } });
+  assert.ok(firstFixture);
+  const live = await eventView(db, user.id, firstFixture.id, firstFixture.kickoffAt.getTime() + 1);
+  assert.equal(live?.event.status, 'LIVE');
+  assert.equal(live?.event.final_score, null);
+  const second = await currentSeason(db, user.id, base + 60 * 60 * 1000);
+  assert.equal(first.id, second.id);
+  assert.equal(first.endsAt.getTime() - first.startedAt.getTime(), 86_400_000);
+  const view = await dashboard(db, user.id, base + 60 * 60 * 1000);
+  assert.equal(view.balance, STARTING_GRANT);
+  assert.equal(view.fixtures.length, 100);
+  assert.equal(view.seed_commit.length, 64);
+  const finished = await eventView(db, user.id, firstFixture.id, firstFixture.endsAt.getTime() + 1);
+  const finishedAgain = await eventView(db, user.id, firstFixture.id, firstFixture.endsAt.getTime() + 2);
+  assert.equal(finished?.event.status, 'FINISHED');
+  assert.deepEqual(finished?.event.final_score, finishedAgain?.event.final_score);
+  await db.session.deleteMany({ where: { userId: user.id } });
+  await db.walletEntry.deleteMany({ where: { userId: user.id } });
+  await db.rating.deleteMany({ where: { userId: user.id } });
+  await db.fixture.deleteMany({ where: { season: { userId: user.id } } });
+  await db.season.deleteMany({ where: { userId: user.id } });
+  await db.user.delete({ where: { id: user.id } });
 });
-test.after(async()=>db.$disconnect());
+test.after(async () => db.$disconnect());
