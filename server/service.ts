@@ -119,8 +119,8 @@ export async function controlSeason(db: Db, userId: string, action: 'RUN' | 'PAU
   }, { timeout: 30_000 });
 }
 
-function publicSeason(season: { id: string; number: number; startedAt: Date; endsAt: Date; seedCommit: string; status: string; simulationState?: string; virtualNowMs?: bigint | number }, now: number) {
-  return { season_id: season.id, season_number: season.number, started_at: season.startedAt.toISOString(), ends_at: season.endsAt.toISOString(), server_now: new Date(now).toISOString(), remaining_ms: Math.max(0, DAY - Number(season.virtualNowMs ?? 0)), virtual_now: new Date(season.startedAt.getTime() + Number(season.virtualNowMs ?? 0)).toISOString(), status: season.status, simulation_state: season.simulationState ?? 'READY', virtual_now_ms: Number(season.virtualNowMs ?? 0), seed_commit: season.seedCommit };
+function publicSeason(season: { id: string; number: number; startedAt: Date; endsAt: Date; seedCommit: string; status: string; simulationState?: string; virtualNowMs?: bigint | number; simulationSpeed?: number }, now: number) {
+  return { season_id: season.id, season_number: season.number, started_at: season.startedAt.toISOString(), ends_at: season.endsAt.toISOString(), server_now: new Date(now).toISOString(), remaining_ms: Math.max(0, DAY - Number(season.virtualNowMs ?? 0)), virtual_now: new Date(season.startedAt.getTime() + Number(season.virtualNowMs ?? 0)).toISOString(), status: season.status, simulation_state: season.simulationState ?? 'READY', simulation_speed: season.simulationSpeed ?? 1, virtual_now_ms: Number(season.virtualNowMs ?? 0), seed_commit: season.seedCommit };
 }
 
 async function seasonCounts(db: Db, seasonId: string, now: number) {

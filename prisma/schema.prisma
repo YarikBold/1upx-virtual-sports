@@ -9,12 +9,19 @@ datasource db {
 }
 
 model User {
-  id        String        @id @default(uuid())
-  createdAt DateTime      @default(now())
+  id           String        @id @default(uuid())
+  username     String?       @unique
+  passwordHash String?
+  role         String        @default("PLAYER")
+  balance      Int           @default(10000)
+  blockedAt    DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   sessions  Session[]
   ledger    WalletEntry[]
   ratings   Rating[]
   seasons   Season[]
+  adminLogs AdminLog[]
 }
 
 model Session {
@@ -94,6 +101,7 @@ model Season {
   status     String    @default("ACTIVE")
   simulationState String  @default("READY")
   virtualNowMs BigInt   @default(0)
+  simulationSpeed Int    @default(1)
   resumedAt   DateTime?
   pausedAt    DateTime?
   finishedAt  DateTime?
@@ -101,6 +109,18 @@ model Season {
 
   @@unique([userId, number])
   @@index([userId, status])
+}
+
+model AdminLog {
+  id        String   @id @default(uuid())
+  actorId   String
+  actor     User     @relation(fields: [actorId], references: [id])
+  action    String
+  metadata  Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
 }
 
 model Fixture {

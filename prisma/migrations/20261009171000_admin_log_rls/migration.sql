@@ -1,0 +1,2 @@
+ALTER TABLE "AdminLog" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE "AdminLog" FROM anon, authenticated;
