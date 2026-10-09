@@ -67,7 +67,11 @@ export async function startSeason(db: Db, userId: string, now = Date.now()) {
 export async function currentSeason(db: Db, userId: string, now = Date.now()) {
   return db.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM "User" WHERE id=${userId} FOR UPDATE`;
-    const season = await tx.season.findFirst({ where: { userId, simulationState: { in: ['READY', 'RUNNING', 'PAUSED', 'FINISHING'] } }, orderBy: { number: 'desc' } });
+    // Prefer the current active season. When a season has been finished, keep
+    // exposing the latest record so the UI and event history remain available
+    // until the user explicitly starts a new season.
+    const season = await tx.season.findFirst({ where: { userId, simulationState: { in: ['READY', 'RUNNING', 'PAUSED', 'FINISHING'] } }, orderBy: { number: 'desc' } })
+      ?? await tx.season.findFirst({ where: { userId, simulationState: 'FINISHED' }, orderBy: { number: 'desc' } });
     if (!season) throw new Error('SEASON_NOT_STARTED');
     if (season.simulationState === 'RUNNING' && season.resumedAt) {
       const elapsed = Math.max(0, now - season.resumedAt.getTime());
