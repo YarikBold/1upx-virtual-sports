@@ -22,6 +22,8 @@ test('admin can control season, inspect users and write an action log', async ()
   const login = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'admin', password: 'admin123' } });
   assert.equal(login.statusCode, 200);
   const cookie = cookieOf(login);
+  const adminId = login.json().user.id as string;
+  assert.equal((await app.inject({ method: 'PATCH', url: `/api/admin/users/${adminId}`, headers: { cookie }, payload: { role: 'PLAYER' } })).statusCode, 409);
   assert.equal((await app.inject({ method: 'POST', url: '/api/admin/season/start', headers: { cookie } })).statusCode, 200);
   assert.equal((await app.inject({ method: 'POST', url: '/api/admin/season/speed', headers: { cookie }, payload: { speed: 10 } })).statusCode, 200);
   const overview = await app.inject({ method: 'GET', url: '/api/admin/overview', headers: { cookie } });

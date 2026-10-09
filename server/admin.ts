@@ -79,6 +79,8 @@ export async function adminUpdateUser(db: PrismaClient, actorId: string, userId:
   if (input.role !== undefined && !['ADMIN', 'PLAYER'].includes(input.role)) throw new Error('INVALID_ROLE');
   const user = await db.$transaction(async tx => {
     const current = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    if (actorId === userId && (input.role === 'PLAYER' || input.blocked === true)) throw new Error('SELF_ADMIN_LOCKOUT');
+    if (current.role === 'ADMIN' && input.role === 'PLAYER' && await tx.user.count({ where: { role: 'ADMIN', blockedAt: null } }) <= 1) throw new Error('LAST_ADMIN_REQUIRED');
     const nextBalance = input.balance === undefined ? current.balance : Math.max(0, Math.trunc(input.balance));
     if (nextBalance !== current.balance) await tx.walletEntry.create({ data: { userId, amount: nextBalance - current.balance, reason: 'ADMIN_BALANCE_ADJUSTMENT', idempotencyKey: `admin:${actorId}:${userId}:${randomUUID()}` } });
     return tx.user.update({ where: { id: userId }, data: { role: input.role ?? current.role, balance: nextBalance, blockedAt: input.blocked ? new Date() : input.blocked === false ? null : current.blockedAt } });
