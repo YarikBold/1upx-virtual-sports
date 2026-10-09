@@ -54,4 +54,16 @@ test('parallel start creates one active season and finish cancels unfinished fix
   } finally { await cleanup(user.id); }
 });
 
+test('four users receive independent seasons and fixture ownership', async () => {
+  const base = Date.parse('2026-10-08T00:00:00Z');
+  const users = await Promise.all(Array.from({ length: 4 }, () => createUser(db)));
+  try {
+    const seasons = await Promise.all(users.map(user => startSeason(db, user.id, base)));
+    assert.equal(new Set(seasons.map(season => season.id)).size, 4);
+    const fixtureCounts = await Promise.all(seasons.map(season => db.fixture.count({ where: { seasonId: season.id } })));
+    assert.deepEqual(fixtureCounts, [100, 100, 100, 100]);
+    assert.equal(await db.season.count({ where: { id: seasons[0].id, userId: users[1].id } }), 0);
+  } finally { await Promise.all(users.map(user => cleanup(user.id))); }
+});
+
 test.after(async () => db.$disconnect());
